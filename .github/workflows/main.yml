@@ -10,7 +10,7 @@ on:
       - main
       - master
 
-# Add permissions block
+#dd permissions block
 permissions:
   contents: read
   packages: write
