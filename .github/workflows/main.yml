@@ -10,6 +10,13 @@ on:
       - main
       - master
 
+# Add permissions block
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+  actions: write
+
 env:
   DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
   DOCKER_REGISTRY_REPO: ${{ secrets.DOCKER_REGISTRY_REPO }}
@@ -54,7 +61,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
           
-      - name: Login to GitLab Registry
+      - name: Login to Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.DOCKER_REGISTRY }}
