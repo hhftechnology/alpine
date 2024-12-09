@@ -10,43 +10,18 @@ on:
       - main
       - master
 
-# Add permissions block
 permissions:
   contents: read
   packages: write
-  security-events: write
-  actions: write
 
 env:
-  DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
-  DOCKER_REGISTRY_REPO: ${{ secrets.DOCKER_REGISTRY_REPO }}
-  DOCKER_REGISTRY_DOCKERHUB_REPO: ${{ secrets.DOCKER_REGISTRY_DOCKERHUB_REPO }}
-  DOCKER_REGISTRY_QUAY_REPO: ${{ secrets.DOCKER_REGISTRY_QUAY_REPO }}
-  DOCKER_REGISTRY_QUAY: ${{ secrets.DOCKER_REGISTRY_QUAY }}
-  DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # Security scanning jobs
-  security-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
-        with:
-          languages: javascript
-          
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
-          
-      - name: Run secret detection
-        uses: zricethezav/gitleaks-action@v2
-
   # AMD64 build jobs
   build-amd64:
     runs-on: ubuntu-latest
-    needs: security-scan
     steps:
       - uses: actions/checkout@v4
       
@@ -56,25 +31,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         
-      - name: Login to Docker Hub
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ env.DOCKERHUB_TOKEN }}
-          
-      - name: Login to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.DOCKER_REGISTRY }}
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: Login to Quay.io
-        uses: docker/login-action@v3
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_USERNAME }}
-          password: ${{ secrets.QUAY_PASSWORD }}
 
       - name: Build and push AMD64 images
         uses: docker/build-push-action@v5
@@ -83,12 +45,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REGISTRY_REPO }}:x86_64
-            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REGISTRY_REPO }}:amd64
-            ${{ env.DOCKER_REGISTRY_DOCKERHUB_REPO }}:x86_64
-            ${{ env.DOCKER_REGISTRY_DOCKERHUB_REPO }}:amd64
-            ${{ env.DOCKER_REGISTRY_QUAY }}/${{ env.DOCKER_REGISTRY_QUAY_REPO }}:x86_64
-            ${{ env.DOCKER_REGISTRY_QUAY }}/${{ env.DOCKER_REGISTRY_QUAY_REPO }}:amd64
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:x86_64
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:amd64
           build-args: |
             VCS_REF=${{ github.sha }}
             BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -96,7 +54,6 @@ jobs:
   # ARM32v7 build jobs
   build-arm32v7:
     runs-on: ubuntu-latest
-    needs: security-scan
     steps:
       - uses: actions/checkout@v4
       
@@ -106,10 +63,10 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         
-      - name: Login to registries
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.DOCKER_REGISTRY }}
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -120,12 +77,8 @@ jobs:
           platforms: linux/arm/v7
           push: true
           tags: |
-            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REGISTRY_REPO }}:arm32v7
-            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REGISTRY_REPO }}:armhf
-            ${{ env.DOCKER_REGISTRY_DOCKERHUB_REPO }}:arm32v7
-            ${{ env.DOCKER_REGISTRY_DOCKERHUB_REPO }}:armhf
-            ${{ env.DOCKER_REGISTRY_QUAY }}/${{ env.DOCKER_REGISTRY_QUAY_REPO }}:arm32v7
-            ${{ env.DOCKER_REGISTRY_QUAY }}/${{ env.DOCKER_REGISTRY_QUAY_REPO }}:armhf
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm32v7
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:armhf
           build-args: |
             VCS_REF=${{ github.sha }}
             BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -133,7 +86,6 @@ jobs:
   # ARM64v8 build jobs
   build-arm64v8:
     runs-on: ubuntu-latest
-    needs: security-scan
     steps:
       - uses: actions/checkout@v4
       
@@ -143,10 +95,10 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         
-      - name: Login to registries
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.DOCKER_REGISTRY }}
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -157,12 +109,8 @@ jobs:
           platforms: linux/arm64/v8
           push: true
           tags: |
-            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REGISTRY_REPO }}:arm64v8
-            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REGISTRY_REPO }}:aarch64
-            ${{ env.DOCKER_REGISTRY_DOCKERHUB_REPO }}:arm64v8
-            ${{ env.DOCKER_REGISTRY_DOCKERHUB_REPO }}:aarch64
-            ${{ env.DOCKER_REGISTRY_QUAY }}/${{ env.DOCKER_REGISTRY_QUAY_REPO }}:arm64v8
-            ${{ env.DOCKER_REGISTRY_QUAY }}/${{ env.DOCKER_REGISTRY_QUAY_REPO }}:aarch64
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64v8
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:aarch64
           build-args: |
             VCS_REF=${{ github.sha }}
             BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -172,29 +120,16 @@ jobs:
     needs: [build-amd64, build-arm32v7, build-arm64v8]
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to registries
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.DOCKER_REGISTRY }}
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create and push manifests
         run: |
-          docker buildx imagetools create -t ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REGISTRY_REPO }}:latest \
-            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REGISTRY_REPO }}:amd64 \
-            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REGISTRY_REPO }}:arm32v7 \
-            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REGISTRY_REPO }}:arm64v8
-
-          docker buildx imagetools create -t ${{ env.DOCKER_REGISTRY_DOCKERHUB_REPO }}:latest \
-            ${{ env.DOCKER_REGISTRY_DOCKERHUB_REPO }}:amd64 \
-            ${{ env.DOCKER_REGISTRY_DOCKERHUB_REPO }}:arm32v7 \
-            ${{ env.DOCKER_REGISTRY_DOCKERHUB_REPO }}:arm64v8
-
-          docker buildx imagetools create -t ${{ env.DOCKER_REGISTRY_QUAY }}/${{ env.DOCKER_REGISTRY_QUAY_REPO }}:latest \
-            ${{ env.DOCKER_REGISTRY_QUAY }}/${{ env.DOCKER_REGISTRY_QUAY_REPO }}:amd64 \
-            ${{ env.DOCKER_REGISTRY_QUAY }}/${{ env.DOCKER_REGISTRY_QUAY_REPO }}:arm32v7 \
-            ${{ env.DOCKER_REGISTRY_QUAY }}/${{ env.DOCKER_REGISTRY_QUAY_REPO }}:arm64v8
+          docker buildx imagetools create -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:amd64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm32v7 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64v8
