@@ -24,10 +24,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Run SAST scan
-        uses: github/codeql-action/analyze@v2
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
         with:
-          languages: javascript, python
+          languages: javascript
+          
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
           
       - name: Run secret detection
         uses: zricethezav/gitleaks-action@v2
