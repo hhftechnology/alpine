@@ -17,11 +17,19 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  ALPINE_VERSIONS: |
+    3.20.3
+    3.19.4
+    3.18.9
+    3.17.10
 
 jobs:
-  # AMD64 build jobs
+  # AMD64 build jobs for all versions
   build-amd64:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version: [3.20.3, 3.19.4, 3.18.9, 3.17.10]
     steps:
       - uses: actions/checkout@v4
       
@@ -37,23 +45,34 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version components
+        id: version
+        run: |
+          MAJOR_MINOR=$(echo "${{ matrix.version }}" | cut -d'.' -f1,2)
+          echo "major_minor=${MAJOR_MINOR}" >> $GITHUB_OUTPUT
 
       - name: Build and push AMD64 images
         uses: docker/build-push-action@v5
         with:
-          context: ./alpine-3.20.3/amd64/
+          context: ./alpine-${{ matrix.version }}/amd64/
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:x86_64
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:amd64
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.version }}-x86_64
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.version }}-amd64
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.major_minor }}-x86_64
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.major_minor }}-amd64
           build-args: |
             VCS_REF=${{ github.sha }}
             BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 
-  # ARM32v7 build jobs
+  # ARM32v7 build jobs for all versions
   build-arm32v7:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version: [3.20.3, 3.19.4, 3.18.9, 3.17.10]
     steps:
       - uses: actions/checkout@v4
       
@@ -69,23 +88,34 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version components
+        id: version
+        run: |
+          MAJOR_MINOR=$(echo "${{ matrix.version }}" | cut -d'.' -f1,2)
+          echo "major_minor=${MAJOR_MINOR}" >> $GITHUB_OUTPUT
 
       - name: Build and push ARM32v7 images
         uses: docker/build-push-action@v5
         with:
-          context: ./alpine-3.20.3/arm32v7/
+          context: ./alpine-${{ matrix.version }}/arm32v7/
           platforms: linux/arm/v7
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm32v7
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:armhf
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.version }}-arm32v7
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.version }}-armhf
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.major_minor }}-arm32v7
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.major_minor }}-armhf
           build-args: |
             VCS_REF=${{ github.sha }}
             BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 
-  # ARM64v8 build jobs
+  # ARM64v8 build jobs for all versions
   build-arm64v8:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version: [3.20.3, 3.19.4, 3.18.9, 3.17.10]
     steps:
       - uses: actions/checkout@v4
       
@@ -102,21 +132,64 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Extract version components
+        id: version
+        run: |
+          MAJOR_MINOR=$(echo "${{ matrix.version }}" | cut -d'.' -f1,2)
+          echo "major_minor=${MAJOR_MINOR}" >> $GITHUB_OUTPUT
+
       - name: Build and push ARM64v8 images
         uses: docker/build-push-action@v5
         with:
-          context: ./alpine-3.20.3/arm64v8/
+          context: ./alpine-${{ matrix.version }}/arm64v8/
           platforms: linux/arm64/v8
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64v8
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:aarch64
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.version }}-arm64v8
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.version }}-aarch64
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.major_minor }}-arm64v8
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.major_minor }}-aarch64
           build-args: |
             VCS_REF=${{ github.sha }}
             BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 
-  # Create and push multi-arch manifests
+  # Create and push multi-arch manifests for each version
   create-manifests:
+    needs: [build-amd64, build-arm32v7, build-arm64v8]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version: [3.20.3, 3.19.4, 3.18.9, 3.17.10]
+    steps:
+      - name: Extract version components
+        id: version
+        run: |
+          MAJOR_MINOR=$(echo "${{ matrix.version }}" | cut -d'.' -f1,2)
+          echo "major_minor=${MAJOR_MINOR}" >> $GITHUB_OUTPUT
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push version manifests
+        run: |
+          # Create manifest for full version (e.g., 3.20.3)
+          docker buildx imagetools create -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.version }} \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.version }}-amd64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.version }}-arm32v7 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.version }}-arm64v8
+
+          # Create manifest for major.minor version (e.g., 3.20)
+          docker buildx imagetools create -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.major_minor }} \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.version }}-amd64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.version }}-arm32v7 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.version }}-arm64v8
+
+  # Create latest tag from newest version (3.20.3)
+  create-latest:
     needs: [build-amd64, build-arm32v7, build-arm64v8]
     runs-on: ubuntu-latest
     steps:
@@ -127,9 +200,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create and push manifests
+      - name: Create and push latest manifest
         run: |
           docker buildx imagetools create -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:amd64 \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm32v7 \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64v8
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:3.20.3-amd64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:3.20.3-arm32v7 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:3.20.3-arm64v8
