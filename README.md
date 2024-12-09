@@ -65,15 +65,12 @@ Alpine Linux is a Linux distribution built around musl libc and BusyBox. The ima
 ## 📏 Layers & Sizes
 
 ![Version](https://img.shields.io/badge/version-amd64-blue.svg?style=for-the-badge)
-![MicroBadger Layers (tag)](https://img.shields.io/docker/layers/hhftechnology/alpine/amd64.svg?style=for-the-badge)
 ![MicroBadger Size (tag)](https://img.shields.io/docker/image-size/hhftechnology/alpine/amd64.svg?style=for-the-badge)
 
 ![Version](https://img.shields.io/badge/version-aarch64-blue.svg?style=for-the-badge)
-![MicroBadger Layers (tag)](https://img.shields.io/docker/layers/hhftechnology/alpine/aarch64.svg?style=for-the-badge)
 ![MicroBadger Size (tag)](https://img.shields.io/docker/image-size/hhftechnology/alpine/aarch64.svg?style=for-the-badge)
 
 ![Version](https://img.shields.io/badge/version-armhf-blue.svg?style=for-the-badge)
-![MicroBadger Layers (tag)](https://img.shields.io/docker/layers/hhftechnology/alpine/armhf.svg?style=for-the-badge)
 ![MicroBadger Size (tag)](https://img.shields.io/docker/image-size/hhftechnology/alpine/armhf.svg?style=for-the-badge)
 
 ## 🚀 How to use this image
