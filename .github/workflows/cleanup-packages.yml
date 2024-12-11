@@ -11,8 +11,9 @@ jobs:
       - name: Delete old container images
         uses: actions/delete-package-versions@v4
         with:
-          package-name: '${{ github.repository }}'
+          package-name: 'alpine'  # Just the package name without organization
+          owner: 'hhftechnology'  # Your organization name
           package-type: 'container'
           min-versions-to-keep: 5
           delete-only-untagged-versions: false
-          age-filter: >1  # Deletes packages older than 1 day
+          num-old-versions-to-delete: 10  # Number of old versions to delete per run
