@@ -9,7 +9,7 @@ jobs:
     
     steps:
       - name: Delete old container images
-        uses: actions/delete-package-versions@v4
+        uses: actions/delete-package-versions@v5
         with:
           package-name: 'alpine'  # Just the package name without organization
           owner: 'hhftechnology'  # Your organization name
