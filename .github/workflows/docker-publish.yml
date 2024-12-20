@@ -1,0 +1,159 @@
+name: Docker Build and Publish
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ 'v*.*.*' ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  REGISTRY_DOCKER: docker.io
+  REGISTRY_GHCR: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        alpine_version: 
+          - { version: "edge", tag: "edge" }
+          - { version: "3.21", tag: "3.21" }
+          - { version: "3.20", tag: "3.20" }
+          - { version: "3.19", tag: "3.19" }
+          - { version: "3.18", tag: "3.18" }
+          - { version: "3.17", tag: "3.17" }
+          - { version: "3.16", tag: "3.16" }
+          - { version: "3.15", tag: "3.15" }
+          - { version: "3.14", tag: "3.14" }
+          - { version: "3.13", tag: "3.13" }
+          - { version: "3.12", tag: "3.12" }
+          - { version: "3.11", tag: "3.11" }
+          - { version: "3.10", tag: "3.10" }
+          - { version: "3.9", tag: "3.9" }
+          - { version: "3.8", tag: "3.8" }
+          - { version: "3.7", tag: "3.7" }
+          - { version: "3.6", tag: "3.6" }
+          - { version: "3.5", tag: "3.5" }
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log into Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log into GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_GHCR }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.REGISTRY_DOCKER }}/${{ env.IMAGE_NAME }}
+            ${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ matrix.alpine_version.tag }}
+            type=raw,value=${{ matrix.alpine_version.tag }}-amd64,enable=${{ !startsWith(github.ref, 'refs/tags/') }}
+            type=raw,value=${{ matrix.alpine_version.tag }}-arm64,enable=${{ !startsWith(github.ref, 'refs/tags/') }}
+            type=raw,value=${{ matrix.alpine_version.tag }}-armhf,enable=${{ !startsWith(github.ref, 'refs/tags/') }}
+            type=ref,event=branch,prefix=${{ matrix.alpine_version.tag }}-
+            type=ref,event=pr,prefix=${{ matrix.alpine_version.tag }}-
+            type=semver,pattern={{version}},prefix=${{ matrix.alpine_version.tag }}-
+            type=semver,pattern={{major}}.{{minor}},prefix=${{ matrix.alpine_version.tag }}-
+            type=sha,prefix=${{ matrix.alpine_version.tag }}-
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            ALPINE_VERSION=${{ matrix.alpine_version.version }}
+            GOLANG_VERSION=1.21.13
+            S6_OVERLAY_VERSION=3.2.0.2
+            YQ_VERSION=v4.44.2
+            ZABBIX_VERSION=7.0.5
+            FLUENTBIT_VERSION=3.1.10
+
+  # Job to create manifest lists for multi-arch images
+  create-manifests:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    strategy:
+      matrix:
+        alpine_version: 
+          - "edge"
+          - "3.21"
+          - "3.20"
+          - "3.19"
+          - "3.18"
+          - "3.17"
+          - "3.16"
+          - "3.15"
+          - "3.14"
+          - "3.13"
+          - "3.12"
+          - "3.11"
+          - "3.10"
+          - "3.9"
+          - "3.8"
+          - "3.7"
+          - "3.6"
+          - "3.5"
+
+    steps:
+      - name: Log into Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log into GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_GHCR }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push manifest lists
+        run: |
+          # For Docker Hub
+          docker manifest create ${{ env.REGISTRY_DOCKER }}/${{ env.IMAGE_NAME }}:${{ matrix.alpine_version }} \
+            ${{ env.REGISTRY_DOCKER }}/${{ env.IMAGE_NAME }}:${{ matrix.alpine_version }}-amd64 \
+            ${{ env.REGISTRY_DOCKER }}/${{ env.IMAGE_NAME }}:${{ matrix.alpine_version }}-arm64 \
+            ${{ env.REGISTRY_DOCKER }}/${{ env.IMAGE_NAME }}:${{ matrix.alpine_version }}-armhf
+          docker manifest push ${{ env.REGISTRY_DOCKER }}/${{ env.IMAGE_NAME }}:${{ matrix.alpine_version }}
+
+          # For GitHub Container Registry
+          docker manifest create ${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}:${{ matrix.alpine_version }} \
+            ${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}:${{ matrix.alpine_version }}-amd64 \
+            ${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}:${{ matrix.alpine_version }}-arm64 \
+            ${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}:${{ matrix.alpine_version }}-armhf
+          docker manifest push ${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}:${{ matrix.alpine_version }}
