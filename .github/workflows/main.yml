@@ -94,6 +94,9 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          # Enable BuildX caching
+          buildkitd-flags: --debug
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -115,6 +118,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
+      # Add cache for Docker layers
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ matrix.distro_variant }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-${{ matrix.distro_variant }}-
+            ${{ runner.os }}-buildx-
+
       - name: Build and Push Docker Image
         if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v6
@@ -127,3 +140,12 @@ jobs:
           tags: ${{ steps.prep.outputs.container_images }}
           build-args: |
             ALPINE_VERSION=${{ matrix.distro_variant }}
+          # Configure caching
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+
+      # Temporary fix for cache size growth
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
